@@ -5,7 +5,7 @@ aws cli scripts written in bash
 
 ### ?
 
-<img src="https://mdimage.s3.amazonaws.com/20240223_002209_show.gif" alt="show" style="zoom:50%;" />
+https://mdimage.s3.amazonaws.com/20240223_002209_show.gif
 
 ### !
 
