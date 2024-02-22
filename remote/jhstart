@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# config
+declare -a TO_START=(
+    "jh01"
+    "jh02"
+    "jh03"
+)
+# ---------------------------
+
+declare -a ID_LIST
+
+QUERY="Reservations[*].Instances[*].[\
+Tags[0].Value,\
+InstanceId\
+]"
+INSTANCE_LIST=$(aws ec2 describe-instances --query "$QUERY" --output text)
+
+readarray -t RECORDS <<< "$INSTANCE_LIST"
+
+# add instance_id to ID_LIST if name exists in TO_START
+# i.e. filter instance_id by TO_START
+for record in "${RECORDS[@]}"; do
+    # record = "<NAME> <ID>" delimiter=\t
+    readarray -td $'\t' tokens <<< "$record"
+    # tokens = ["<NAME>", "<ID>"]
+    for idx in "${!tokens[@]}"; do
+        tokens[idx]=$(trim "${tokens[idx]}")
+    done
+    if [[ "${TO_START[@]}" =~ ${tokens[0]} ]]; then
+        ID_LIST+=("${tokens[1]}")
+    fi
+done
+
+# start instances
+if ! aws ec2 start-instances --instance-ids "${ID_LIST[@]}" &>/dev/null; then
+    pcolor red "start failed"
+    exit 1
+fi
+
+QUERY_STATE="Reservations[*].Instances[*].[\
+State.Name\
+]"
+
+# wait until all designated instances are running
+pcolor green "starting instances ${TO_START[@]}..."
+DONE=false
+while [ "false" = "$DONE" ]; do
+    DONE=true
+    STATE_LIST=$(aws ec2 describe-instances --query "$QUERY_STATE" --instance-ids "${ID_LIST[@]}" --output text)
+    readarray -t states <<< "$STATE_LIST"
+    for state in "${states[@]}"; do
+        state=$(trim "$state")
+        if [ "running" != "$state" ]; then
+            DONE=false 
+            break
+        fi
+    done
+    sleep 2
+done
+pcolor green "done!"

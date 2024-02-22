@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+# ssh connect to all running instances in tmux window
+# config
+SSH_CMD_PREFIX="ssh -i ~/Documents/junhao.pem"
+USER_NAME="ubuntu"
+SESSION_NAME="server"
+
+#----------------------------
+declare -a WINDOW_LIST
+declare -a IP_LIST
+
+prepare_session "$SESSION_NAME"
+
+QUERY="Reservations[*].Instances[*].[\
+Tags[0].Value,\
+State.Name,\
+PublicIpAddress\
+]"
+
+INSTANCE_LIST=$(aws ec2 describe-instances --query "$QUERY" --output text)
+
+readarray -t RECORDS <<< "$INSTANCE_LIST"
+
+for record in "${RECORDS[@]}"; do
+    # record = "<NAME> <STATE> <IP>" delimiter=\t
+    readarray -td $'\t' tokens <<< "$record"
+    # tokens = ["<NAME>", "<STATE>", "<IP>"]
+    for idx in "${!tokens[@]}"; do
+        tokens[idx]=$(trim "${tokens[idx]}")
+    done
+    # if state is running, add name and ip to list
+    if [[ "running" = ${tokens[1]} ]]; then
+        WINDOW_LIST+=("${tokens[0]}")
+        IP_LIST+=("${tokens[2]}")
+    fi
+done
+
+pcolor green "creating tmux windows in session $SESSION_NAME..."
+for idx in "${!WINDOW_LIST[@]}"; do
+    connect="$SSH_CMD_PREFIX $USER_NAME@${IP_LIST[idx]}"
+    cmd_window "$SESSION_NAME" "${WINDOW_LIST[idx]}" "$connect"
+    pcolor green "window ${WINDOW_LIST[idx]} is running $connect"
+done
+pcolor green "done!"

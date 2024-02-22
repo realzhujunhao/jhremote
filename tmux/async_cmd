@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# execute a command in a window by send-keys
+# second call of this does not wait for the first one to complete
+# for sequential execution do `async_cmd <session> <window> "cmd1; cmd2; cmd3; ..."`
+
+# if session does not exist -> create it
+# if window does not exist -> create it
+
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $(basename "$0") <session> <window> <command>"
+    exit 1
+fi
+
+SESSION="$1"
+WINDOW="$2"
+CMD="$3"
+TARGET="$SESSION:$WINDOW"
+
+prepare_session $SESSION
+if ! tmux send-keys -t "$TARGET" Enter &>/dev/null; then
+    tmux new-window -t "$SESSION:" -n "$WINDOW"
+fi
+tmux send-keys -t "$TARGET" "$CMD" Enter

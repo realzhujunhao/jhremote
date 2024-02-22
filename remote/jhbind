@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+# update route53 A type record
+#
+# for those who cannot afford elastic IP (like me)
+# suppose you have domain name abc.com
+# and your running instance names are ins1, ins2, ...
+# then this script will add these records
+# ins1.abc.com -> public IP of inst1
+# ins2.abc.com -> public IP of inst2
+# ...
+
+# config
+# example: ".com", ".org", ".net", ...
+TOP_LV_DOMAIN="com"
+# your domain name purchased from provider
+SECOND_LV_DOMAIN="realzhujunhao"
+
+#---------------------------------
+BASE_DOMAIN="${SECOND_LV_DOMAIN}.${TOP_LV_DOMAIN}"
+
+# query route53 host-zone-id
+ZONE_ID=$(aws route53 list-hosted-zones-by-name --dns-name "$BASE_DOMAIN" --query "HostedZones[0].Id")
+
+# split by /
+readarray -td '/' TOKENS <<< "$ZONE_ID"
+# trim last token
+ZONE_ID=$(trim ${TOKENS[-1]})
+# exclude trailing "
+ZONE_ID=${ZONE_ID//\"/}
+
+
+QUERY="Reservations[*].Instances[*].[\
+Tags[0].Value,\
+PublicIpAddress\
+]"
+FILTER="Name=instance-state-name,Values=running"
+
+INSTANCE_LIST=$(aws ec2 describe-instances --query "$QUERY" --filter "$FILTER" --output text)
+
+readarray -t RECORDS <<< "$INSTANCE_LIST"
+
+if [[ "" = ${RECORDS[0]} ]]; then
+    pcolor red "no running instance"
+    exit 1
+fi
+
+JSON_BATCH="\
+{
+    \"Changes\": ["
+
+for record in "${RECORDS[@]}"; do
+    readarray -td $'\t' tokens <<< "$record"
+    for idx in "${!tokens[@]}"; do
+        tokens[idx]=$(trim "${tokens[idx]}")
+    done
+    # tokens = ["<NAME>", "<IP>"]
+    domain="${tokens[0]}.$BASE_DOMAIN"
+    ip=${tokens[1]}
+    pcolor green "binding $domain to $ip"
+
+    comma=","
+    if [[ "$record" = "${RECORDS[-1]}" ]]; then
+        comma=""
+    fi
+    
+    cur_change="{
+        \"Action\": \"UPSERT\",
+        \"ResourceRecordSet\": {
+            \"Name\": \"$domain\",
+            \"Type\": \"A\",
+            \"TTL\": 300,
+            \"ResourceRecords\": [
+                {
+                    \"Value\": \"$ip\"
+                }
+            ]
+        }
+    }$comma
+    "
+    JSON_BATCH="${JSON_BATCH}${cur_change}"
+done
+
+JSON_BATCH="$JSON_BATCH]
+}"
+
+if ! aws route53 change-resource-record-sets --hosted-zone-id "$ZONE_ID" --change-batch "$JSON_BATCH" &>/dev/null; then
+    pcolor red "update failed"
+    exit 1
+fi
+if [[ "verbose" = "$1" ]]; then
+    pcolor yellow "$JSON_BATCH"
+fi

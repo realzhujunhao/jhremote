@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# stop all running instances
+
+declare -a NAME_LIST
+declare -a ID_LIST
+
+QUERY="Reservations[*].Instances[*].[\
+Tags[0].Value,\
+InstanceId\
+]"
+FILTER="Name=instance-state-name,Values=running"
+
+# retrieve all instance id where state = running
+INSTANCE_LIST=$(aws ec2 describe-instances --query "$QUERY" --filter "$FILTER" --output text)
+
+readarray -t RECORDS <<< "$INSTANCE_LIST"
+
+for record in "${RECORDS[@]}"; do
+    # record = "<NAME> <ID>"
+    readarray -td $'\t' tokens <<< "$record"
+    # tokens = ["<NAME>", "<ID>"]
+    for idx in "${!tokens[@]}"; do
+        tokens[idx]=$(trim "${tokens[idx]}")
+    done
+    NAME_LIST+=(${tokens[0]})
+    ID_LIST+=(${tokens[1]})
+done
+
+# stop instances
+if ! aws ec2 stop-instances --instance-ids "${ID_LIST[@]}" &>/dev/null; then
+    pcolor red "stop failed"
+    exit 1
+fi
+
+QUERY_STATE="Reservations[*].Instances[*].[\
+State.Name\
+]"
+
+# wait until all designated instances are stopped
+pcolor green "stopping instances ${NAME_LIST[@]}..."
+DONE=false
+while [ "false" = "$DONE" ]; do
+    DONE=true
+    STATE_LIST=$(aws ec2 describe-instances --query "$QUERY_STATE" --instance-ids "${ID_LIST[@]}" --output text)
+    readarray -t states <<< "$STATE_LIST"
+    for state in "${states[@]}"; do
+        state=$(trim "$state")
+        if [ "stopped" != "$state" ]; then
+            DONE=false
+            break
+        fi
+    done
+    sleep 2
+done
+pcolor green "done!"
+
+
+
+
+
+
+
+
+

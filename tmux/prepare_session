@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+
+# if session does not exist -> create it
+# otherwise no-op
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $(basename "$0") <session-name>"
+    exit 1
+fi
+
+SESSION=$1
+if ! tmux has-session -t "$SESSION" &>/dev/null; then
+    tmux new-session -s "$SESSION" -n root -d
+fi

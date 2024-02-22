@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# echo a message with color
+
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $(basename "$0") <color> <message...>"
+    echo "<color>: black/red/green/yellow/blue/purple/cyan/white"
+    exit 1
+fi
+
+OFF='\033[0m'
+BLACK='\033[1;90m'
+RED='\033[1;91m'
+GREEN='\033[1;92m'
+YELLOW='\033[1;93m' BLUE='\033[1;94m'
+PURPLE='\033[1;95m'
+CYAN='\033[1;96m'
+WHITE='\033[1;97m'
+
+COLOR=""
+case $1 in
+    black) COLOR=$BLACK ;;
+    red) COLOR=$RED ;;
+    green) COLOR=$GREEN ;;
+    yellow) COLOR=$YELLOW ;;
+    blue) COLOR=$BLUE ;;
+    purple) COLOR=$PURPLE ;;
+    cyan) COLOR=$CYAN ;;
+    white) COLOR=$WHITE ;;
+    *) echo "<color>: black/red/green/yellow/blue/purple/cyan/white"
+       exit 1 ;;
+esac
+shift
+MESSAGE="$*"
+
+echo -e "${COLOR}${MESSAGE}${OFF}"

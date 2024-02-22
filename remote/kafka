@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+# config
+declare -a INSTANCES=(
+    "ubuntu@jh01.realzhujunhao.com"
+    "ubuntu@jh02.realzhujunhao.com"
+    "ubuntu@jh03.realzhujunhao.com"
+)
+SSH_CMD_PREFIX="ssh -i ~/Documents/junhao.pem"
+SESSION_NAME="kafka"
+
+
+# -----------------------------------
+if  [ "$#" -ne 1 ]; then
+    echo "Usage: $(basename "$0") start/stop/cleanup"
+    exit 1
+fi
+
+# start zookeeper and kafka
+function launch() {
+    local window=$1
+
+    local start_zookeeper="zkServer.sh start"
+    local start_kafka="kafka-server-start.sh \$KAFKA_HOME/config/server.properties"
+    local remote_cmd="$start_zookeeper; $start_kafka"
+
+    async_cmd "$SESSION_NAME" "$window" "$remote_cmd"
+}
+
+function start() {
+    prepare_session "$SESSION_NAME"
+    for instance in "${INSTANCES[@]}"
+    do
+        # instance = abc@def.ghi.com -> window = def
+        IFS='@' read -ra tokens <<< "$instance"
+        IFS='.' read -ra tokens <<< "${tokens[1]}"
+        local window="${tokens[0]}"
+
+        local connect="$SSH_CMD_PREFIX $instance"
+        cmd_window "$SESSION_NAME" "$window" "$connect"
+        launch "$window"
+    done
+}
+
+function stop() {
+    for instance in "${INSTANCES[@]}}"
+    do
+        # instance = abc@def.ghi.com -> window = def
+        IFS='@' read -ra tokens <<< "$instance"
+        IFS='.' read -ra tokens <<< "${tokens[1]}"
+        local window="${tokens[0]}"
+
+        tmux send-keys -t "$SESSION_NAME:$window" C-c
+    done
+}
+
+function cleanup() {
+    tmux kill-session -t $SESSION_NAME
+}
+
+case $1 in
+    start)
+        echo "starting kafka on all nodes"
+        start
+        ;;
+    stop)
+        echo "stopping kafka on all nodes"
+        stop
+        ;;
+    cleanup)
+        echo "closing kafka tmux session"
+        cleanup
+        ;;
+esac

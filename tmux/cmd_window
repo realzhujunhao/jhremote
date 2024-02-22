@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# execute a command in a window
+# if session does not exist -> create it
+# if window exists -> kill it and then create a new one
+
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $(basename "$0") <session> <window> <command>"
+    exit 1
+fi
+
+SESSION=$1
+WINDOW=$2
+CMD=$3
+
+prepare_session $SESSION
+
+if tmux send-keys -t "$SESSION:$WINDOW" Enter &>/dev/null; then
+    tmux kill-window -t "$SESSION:$WINDOW"
+fi
+tmux new-window -t "$SESSION:" -n "$WINDOW" "$CMD"
