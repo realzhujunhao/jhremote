@@ -20,9 +20,10 @@ fi
 function launch() {
     local window=$1
 
+    local flush_dns="sudo resolvectl flush-caches"
     local start_zookeeper="zkServer.sh start"
     local start_kafka="kafka-server-start.sh \$KAFKA_HOME/config/server.properties"
-    local remote_cmd="$start_zookeeper; $start_kafka"
+    local remote_cmd="$flush_dns; $start_zookeeper; $start_kafka"
 
     async_cmd "$SESSION_NAME" "$window" "$remote_cmd"
 }
@@ -52,6 +53,7 @@ function stop() {
 
         tmux send-keys -t "$SESSION_NAME:$window" C-c
     done
+    sleep 10
 }
 
 function cleanup() {
