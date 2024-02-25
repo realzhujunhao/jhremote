@@ -5,7 +5,7 @@ aws cli scripts written in bash
 
 ### ?
 
-https://mdimage.s3.amazonaws.com/20240223_002209_show.gif
+example(https://mdimage.s3.amazonaws.com/20240223_002209_show.gif)
 
 ### !
 
