@@ -1,19 +1,23 @@
 #!/usr/bin/env fish
 
 function help
-    echo (basename (status -f)) option instance-name
-    echo option: start/stop
+    set_color red
+    echo (basename (status -f)) describe
+    echo (basename (status -f)) start/stop instance-name
+    echo (basename (status -f)) mount instance-name mount-path
+    set_color normal
     exit 1
 end
 
+
 function describe
     aws ec2 describe-instances \
-        --query "Reservations[*].Instances[*].[InstanceType,InstanceId,PublicIpAddress,State.Name]" \
+        --query "Reservations[*].Instances[*].[Tags[0].Value,InstanceType,InstanceId,PublicIpAddress,State.Name]" \
         --output text
 end
 
 function start
-    if test (count $argv) -ne 2
+    if test (count $argv) -ne 1
         help
     end
     set -l name $argv[1]
@@ -21,15 +25,18 @@ function start
         --filters "Name=tag:Name,Values=$name" \
         --query "Reservations[*].Instances[*].{Instance:InstanceId}" \
         --output text)
+    echo "starting $name..."
     if not aws ec2 start-instances --instance-ids $instance_ids > /dev/null
+        set_color red
         echo start failed
         exit 1
     end
-    echo start succeeded
+    aws ec2 wait instance-running --instance-ids $instance_ids
+    echo started
 end
 
 function stop
-    if test (count $argv) -ne 2
+    if test (count $argv) -ne 1
         help
     end
     set -l name $argv[1]
@@ -38,25 +45,29 @@ function stop
         --query "Reservations[*].Instances[*].{Instance:InstanceId}" \
         --output text)
 
+    echo "stopping $name..."
     if not aws ec2 stop-instances --instance-ids $instance_ids > /dev/null
+        set_color red
         echo stop failed
         exit 1
     end
-    echo stop succeeded
+    aws ec2 wait instance-stopped --instance-ids $instance_ids
+    echo stopped
 end
 
 if test (count $argv) -lt 1
     help
 end
 
+set_color green
 switch $argv[1]
+    case describe
+        describe
     case start
         start $argv[2]
     case stop
         stop $argv[2]
-    case describe
-        describe
     case '*'
         help
 end
-
+set_color normal
