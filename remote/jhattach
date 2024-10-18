@@ -2,7 +2,7 @@
 
 # ssh connect to all running instances in tmux window
 # config
-SSH_CMD_PREFIX="ssh -i ~/Documents/junhao.pem"
+SSH_CMD_PREFIX="ssh"
 USER_NAME="ubuntu"
 SESSION_NAME="server"
 

@@ -1,0 +1,48 @@
+#!/usr/bin/env fish
+
+function help
+    echo (basename (status -f)) option instance-name
+    echo option: start/stop
+    exit 1
+end
+
+function start
+    set -l name $argv[1]
+    set -l instance_ids (aws ec2 describe-instances \
+        --filters "Name=tag:Name,Values=$name" \
+        --query "Reservations[*].Instances[*].{Instance:InstanceId}" \
+        --output text)
+    if not aws ec2 start-instances --instance-ids $instance_ids > /dev/null
+        echo start failed
+        exit 1
+    end
+    echo start succeeded
+end
+
+function stop
+    set -l name $argv[1]
+    set -l instance_ids (aws ec2 describe-instances \
+        --filters "Name=tag:Name,Values=$name" \
+        --query "Reservations[*].Instances[*].{Instance:InstanceId}" \
+        --output text)
+
+    if not aws ec2 stop-instances --instance-ids $instance_ids > /dev/null
+        echo stop failed
+        exit 1
+    end
+    echo stop succeeded
+end
+
+if test (count $argv) -ne 2
+    help
+end
+
+switch $argv[1]
+    case start
+        start $argv[2]
+    case stop
+        stop $argv[2]
+    case '*'
+        help
+end
+
