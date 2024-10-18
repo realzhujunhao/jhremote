@@ -6,7 +6,16 @@ function help
     exit 1
 end
 
+function describe
+    aws ec2 describe-instances \
+        --query "Reservations[*].Instances[*].[InstanceType,InstanceId,PublicIpAddress,State.Name]" \
+        --output text
+end
+
 function start
+    if test (count $argv) -ne 2
+        help
+    end
     set -l name $argv[1]
     set -l instance_ids (aws ec2 describe-instances \
         --filters "Name=tag:Name,Values=$name" \
@@ -20,6 +29,9 @@ function start
 end
 
 function stop
+    if test (count $argv) -ne 2
+        help
+    end
     set -l name $argv[1]
     set -l instance_ids (aws ec2 describe-instances \
         --filters "Name=tag:Name,Values=$name" \
@@ -33,7 +45,7 @@ function stop
     echo stop succeeded
 end
 
-if test (count $argv) -ne 2
+if test (count $argv) -lt 1
     help
 end
 
@@ -42,6 +54,8 @@ switch $argv[1]
         start $argv[2]
     case stop
         stop $argv[2]
+    case describe
+        describe
     case '*'
         help
 end
