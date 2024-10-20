@@ -1,5 +1,7 @@
 #!/usr/bin/env fish
 
+set -g MOUNT_DIR ~/Documents/aws_mount
+
 function help
     set_color red
     echo (basename (status -f)) describe
@@ -8,7 +10,6 @@ function help
     set_color normal
     exit 1
 end
-
 
 function describe
     aws ec2 describe-instances \
@@ -23,7 +24,7 @@ function start
     set -l name $argv[1]
     set -l instance_ids (aws ec2 describe-instances \
         --filters "Name=tag:Name,Values=$name" \
-        --query "Reservations[*].Instances[*].{Instance:InstanceId}" \
+        --query "Reservations[*].Instances[*].[InstanceId]" \
         --output text)
     echo "starting $name..."
     if not aws ec2 start-instances --instance-ids $instance_ids > /dev/null
@@ -42,7 +43,7 @@ function stop
     set -l name $argv[1]
     set -l instance_ids (aws ec2 describe-instances \
         --filters "Name=tag:Name,Values=$name" \
-        --query "Reservations[*].Instances[*].{Instance:InstanceId}" \
+        --query "Reservations[*].Instances[*].[InstanceId]" \
         --output text)
 
     echo "stopping $name..."
@@ -53,6 +54,38 @@ function stop
     end
     aws ec2 wait instance-stopped --instance-ids $instance_ids
     echo stopped
+end
+
+function mount
+    if test (count $argv) -ne 2
+        help
+    end
+    set -l instance_name $argv[1]
+    set -l host_name $argv[2]
+    set -l ip (aws ec2 describe-instances \
+        --filters "Name=tag:Name,Values=$instance_name" \
+        --query "Reservations[*].Instances[*].[PublicIpAddress]" \
+        --output text)
+    echo mount $host_name@$ip:~/mount_point to $MOUNT_DIR
+    rclone mount \
+        --sftp-host $ip \
+        :sftp:mount_point \
+        $MOUNT_DIR \
+        --sftp-user $host_name \
+        --sftp-key-file ~/.ssh/id_ed25519 \
+        --sftp-shell-type unix \
+        --allow-other \
+        --allow-non-empty \
+        --sftp-md5sum-command md5sum \
+        --sftp-sha1sum-command sha1sum \
+        --vfs-cache-mode full \
+        --dir-cache-time 5s \
+        --vfs-cache-max-size 2G \
+        --daemon
+end
+
+function unmount
+    diskutil unmount force $MOUNT_DIR
 end
 
 if test (count $argv) -lt 1
@@ -67,6 +100,10 @@ switch $argv[1]
         start $argv[2]
     case stop
         stop $argv[2]
+    case mount
+        mount $argv[2] $argv[3]
+    case unmount
+        unmount
     case '*'
         help
 end
