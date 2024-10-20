@@ -2,6 +2,7 @@
 aws cli scripts written in bash & fish
 
 jhec2: small granularity operations. i.e. dev on one server -> start/stop/describe/mount/unmount
+
 others: bash written in a tedious way, subject to be completely rewritten in near future
 
 ### ?
