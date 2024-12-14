@@ -7,7 +7,7 @@ function help
     echo (basename (status -f)) describe
     echo (basename (status -f)) start/stop instance-name
     echo (basename (status -f)) connect host-name instance-name
-    echo (basename (status -f)) mount instance-name mount-path
+    echo (basename (status -f)) mount host-name instance-name
     set_color normal
     exit 1
 end
@@ -80,8 +80,8 @@ function mount
     if test (count $argv) -ne 2
         help
     end
-    set -l instance_name $argv[1]
-    set -l host_name $argv[2]
+    set -l host_name $argv[1]
+    set -l instance_name $argv[2]
     set -l ip (aws ec2 describe-instances \
         --filters "Name=tag:Name,Values=$instance_name" \
         --query "Reservations[*].Instances[*].[PublicIpAddress]" \
